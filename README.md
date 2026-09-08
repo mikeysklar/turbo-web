@@ -101,19 +101,49 @@ Pre-built module sizes, from the native `mpy-cross` at
 
 | arch | bytes | `_mpy` |
 |---|---|---|
-| armv6m | 538 | `0x1306` |
-| armv7m / armv7em / armv7emsp / armv7emdp | 486 | `0x1706` … `0x2306` |
-| xtensa | 592 | `0x2706` |
-| xtensawin | 573 | `0x2b06` |
-| rv32imc | 540 | `0x2f06` |
+| armv6m | 604 | `0x1306` |
+| armv7m / armv7em / armv7emsp / armv7emdp | 552 | `0x1706` … `0x2306` |
+| xtensa | 658 | `0x2706` |
+| xtensawin | 639 | `0x2b06` |
+| rv32imc | 606 | `0x2f06` |
+
+These match the reference sizes in `turbo-web.md` 3.4 exactly.
+
+## Measured on hardware
+
+A Feather RP2040, built from `loader-only-native` with `CIRCUITPY_LOAD_NATIVE=1`
+and flashed 2026-09-07. `_mpy` came back `0x1306`, so armv6m with the native
+loader. The page's own install and bench, run over the raw REPL:
+
+| | |
+|---|---|
+| from `/src`, bytecode | 8,335 ms |
+| from `/lib/turbo/armv6m`, viper | 422 ms |
+| ratio | 19.8x |
+
+The 422 ms matches the farm's Metro RP2040 exactly, and 19.8x sits next to the
+19.7x in the CLI's table. Probe took 0.20 s, raw REPL banner 0.18 s.
+
+### Which speedup number the page quotes
+
+There are two tables in the project and they measure different things.
+
+- `cli/turbo_cli.py` `MEASURED`: viper against the same integer source run as
+  bytecode. armv6m 19.7x, armv7emsp 16.3x, xtensawin 26.2x.
+- `turbo-cli.md` 2.7: viper against a **float** implementation. RP2040 36.3x,
+  RP2350 24.4x, C5 44.0x. Bigger, because it includes the gain from rewriting
+  the algorithm in fixed point.
+
+The page performs the first comparison, so it quotes the first table. Quoting
+36.3x and then measuring 19.8x on the same board would make the page contradict
+itself. `turbo-web.md` section 4 specifies the float-baseline numbers; this is
+a deliberate departure, backed by the run above.
 
 ## Not verified yet
 
-Everything that needs a board plugged into the machine running Chrome. The
-farm boards are on `bravo`, and WebSerial can only reach a board on the local
-machine, so these wait for hardware here:
-
-- connect and probe against a loader-firmware board, and against a stock one
-- install over the raw REPL, and the read-only fallback
-- the measured before/after
-- the `cp-install-button` flash, which also needs `tools/fetch-firmware.sh`
+- The WebSerial connect through the browser. The port chooser is Chrome UI, so
+  a person has to press Connect and pick the port. Everything behind it is
+  verified: the protocol above ran against the board using the byte sequences
+  in `js/serial.js`.
+- The `cp-install-button` flash itself. The button initializes and carries the
+  right URLs, but no board has been flashed through it.

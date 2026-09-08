@@ -5,17 +5,30 @@
 // Conservative in the same direction as the CLI: anything it cannot see
 // through lands in a lower bucket, never a higher one.
 
-// Measured on the farm, turbo-cli.md line 153. Viper over float bytecode.
+// MEASURED from cli/turbo_cli.py: viper against the SAME integer source run as
+// bytecode. That is the comparison this page performs, so it is the only one
+// that can be quoted before a run without the estimate contradicting the
+// measurement afterwards.
+//
+// Do not use the larger numbers in turbo-cli.md 2.7 (RP2040 36.3x, RP2350
+// 24.4x, C5 44.0x). Those are viper against a FLOAT bytecode implementation,
+// a different baseline: they include the gain from rewriting the algorithm in
+// fixed point, which the page does not do for you.
+//
+// Confirmed on hardware 2026-09-07: a Feather RP2040 on turbo firmware ran the
+// example at 8335 ms from /src and 422 ms from /lib/turbo/armv6m, 19.8x, next
+// to the 19.7x below. The 422 ms also matches the farm's Metro RP2040.
+//
 // No entry means no number is printed; never interpolate a speedup.
 export const MEASURED = {
-  armv6m:    { x: 36.3, board: "the Metro RP2040" },
+  armv6m:    { x: 19.7, board: "the Metro RP2040" },
   armv7m:    null,
   armv7em:   null,
-  armv7emsp: { x: 24.4, board: "the Metro RP2350" },
+  armv7emsp: { x: 16.3, board: "the Metro RP2350" },
   armv7emdp: null,
   xtensa:    null,
   xtensawin: { x: 26.2, board: "the Metro ESP32-S3" },
-  rv32imc:   { x: 44.0, board: "the ESP32-C5" },
+  rv32imc:   null,
 };
 
 const IO_ROOTS = new Set([

@@ -46,6 +46,10 @@ const example = fs.readFileSync(path.join(ROOT, "examples/mandelbrot.py"), "utf8
 const rows = analyze(example, "xtensawin");
 const by = Object.fromEntries(rows.map((r) => [r.name, r]));
 ok(by.mandel_row.label === "Ready" && by.mandel_row.ticked, "mandel_row is Ready and pre-ticked");
+ok(/19\.7x/.test(analyze(example, "armv6m").find(r=>r.name==="mandel_row").why),
+   "Ready quotes the like-for-like number, not the float-baseline one");
+ok(!/36\.3x|24\.4x|44\.0x/.test(analyze(example, "armv6m").find(r=>r.name==="mandel_row").why),
+   "the float-baseline numbers never reach the page");
 ok(/26\.2x/.test(by.mandel_row.why), "Ready quotes the board's measured number");
 ok(by.blend.label === "Rewrite" && by.blend.floatLine === 27, "blend is Rewrite at line 27");
 ok(by.update_display.label === "Skip", "update_display is Skip, it waits on displayio");
@@ -101,14 +105,17 @@ ok(!bad.ok && bad.message === STUB_REFUSAL, "an unknown source is refused, not g
 
 // --- board table ------------------------------------------------------
 const { archForBoard, firmwareFor, pickerBoards } = await import("../js/firmware.js");
-ok(archForBoard("adafruit_feather_rp2040") === "armv6m",
+ok(archForBoard("adafruit_qtpy_rp2040") === "armv6m",
    "a board with no turbo build still resolves an arch");
-ok(firmwareFor("adafruit_feather_rp2040") === null,
+ok(firmwareFor("adafruit_qtpy_rp2040") === null,
    "and is not offered firmware it does not have");
 ok(archForBoard("nonesuch_board") === null, "an unknown board resolves nothing");
 ok(pickerBoards().adafruit_metro_esp32s3.firmware === true &&
-   pickerBoards().adafruit_feather_rp2040.firmware === false,
+   pickerBoards().adafruit_qtpy_rp2040.firmware === false,
    "the picker separates boards with a build from boards without");
+ok(archForBoard("adafruit_feather_rp2040") === "armv6m" &&
+   firmwareFor("adafruit_feather_rp2040") !== null,
+   "the Feather RP2040 has a turbo build and resolves armv6m");
 
 // --- read-only detection ----------------------------------------------
 const { isReadOnly } = await import("../js/serial.js");

@@ -11,6 +11,10 @@
 export const TURBO_VERSION = "10.3.0";
 
 export const BOARDS = {
+  adafruit_feather_rp2040: {
+    name: "Feather RP2040", march: "armv6m",
+    uf2: "firmware/adafruit-circuitpython-adafruit_feather_rp2040-turbo-10.3.0.uf2",
+  },
   adafruit_metro_rp2040: {
     name: "Metro RP2040", march: "armv6m",
     uf2: "firmware/adafruit-circuitpython-adafruit_metro_rp2040-turbo-10.3.0.uf2",

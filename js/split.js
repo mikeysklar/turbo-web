@@ -10,6 +10,19 @@
 
 import { findFunctions } from "./analyze.js";
 
+function params(header) {
+  const open = header.indexOf("(");
+  const close = header.lastIndexOf(")");
+  if (open < 0 || close < open) return [];
+  return header.slice(open + 1, close).split(",")
+    .map((x) => x.split(/[:=]/)[0].trim()).filter(Boolean);
+}
+
+// Names the harness may call besides the lifted functions themselves.
+const SAFE = new Set(["range", "len", "int", "abs", "min", "max", "sum", "bool",
+                      "ord", "chr", "bytearray", "bytes", "array", "memoryview",
+                      "list", "tuple", "enumerate", "zip", "round", "divmod"]);
+
 export const MODULE = "fast";
 
 // Bench harness appended to both forms. Calls each lifted function with
@@ -29,7 +42,39 @@ function benchArgs(header) {
   });
 }
 
-function benchFor(fns) {
+// A driver already in the file beats a synthesized one: it calls the hot
+// function with the arguments the program actually uses, so the measured
+// ratio reflects real work rather than whatever the annotations allow.
+// Eligible: top level, no parameters, and every call it makes is either a
+// lifted function or a builtin, so it is self-contained inside the module.
+export function findDriver(text, names) {
+  for (const fn of findFunctions(text)) {
+    if (names.includes(fn.name)) continue;
+    if (params(fn.header).length) continue;
+    const calls = (fn.body.join("\n").match(/([A-Za-z_][\w.]*)\s*\(/g) || [])
+      .map((c) => c.replace(/\s*\($/, ""));
+    if (calls.some((c) => c.includes("."))) continue;
+    if (!calls.some((c) => names.includes(c))) continue;
+    if (!calls.every((c) => names.includes(c) || SAFE.has(c))) continue;
+    return fn;
+  }
+  return null;
+}
+
+function benchFor(fns, driver) {
+  if (driver) {
+    return [
+      "",
+      "",
+      driver.text,
+      "",
+      "",
+      "def _turbo_bench():",
+      `    # the file's own ${driver.name}(), so the measurement is real work`,
+      `    return ${driver.name}()`,
+      "",
+    ].join("\n");
+  }
   const calls = fns.map((f) => `        ${f.name}(${benchArgs(f.header).join(", ")})`);
   return [
     "",
@@ -86,7 +131,8 @@ export function split(text, names) {
     fastLines.push("", "");
     srcLines.push("", "");
   }
-  const bench = benchFor(fns);
+  const driver = findDriver(text, names);
+  const bench = benchFor(fns, driver);
   const fastPy = fastLines.join("\n").replace(/\n+$/, "\n") + bench;
   const srcPy = srcLines.join("\n").replace(/\n+$/, "\n") + bench;
 
@@ -104,6 +150,7 @@ export function split(text, names) {
 
   return {
     codePy, fastPy, srcPy, moduleName: MODULE, lineMap,
+    driver: driver ? driver.name : null,
     lifted: fns.map((f) => ({ name: f.name, line: f.line, endLine: f.endLine, count: f.endLine - f.line + 1 })),
   };
 }
