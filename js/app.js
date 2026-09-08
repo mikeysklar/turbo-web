@@ -151,9 +151,15 @@ async function showFirmware() {
     status("fw-status", `No turbo firmware published for ${b.boardId} yet.`);
     return;
   }
+  // Without a serial connection the page cannot read _mpy, so it must not
+  // claim the loader is there or missing.
+  const fwChip = () => S.offline
+    ? ["neutral", "cannot tell without serial"]
+    : b.loader ? ["neutral", `turbo ${TURBO_VERSION} already on the board`] : ["acc", "needed"];
+
   const present = await firmwarePresent(b.boardId);
   if (!present) {
-    chip("fw-chip", b.loader ? "neutral" : "acc", b.loader ? `turbo ${TURBO_VERSION} already on the board` : "needed");
+    chip("fw-chip", ...fwChip());
     status("fw-status",
       `The firmware files are not beside this page yet. Run tools/fetch-firmware.sh, ` +
       `or flash ${b.boardId} yourself from the fork's cp-${TURBO_VERSION} release.`, "bad");
@@ -167,12 +173,10 @@ async function showFirmware() {
     return;
   }
   const btn = installButton(b.boardId);
-  if (b.loader) {
-    chip("fw-chip", "neutral", `turbo ${TURBO_VERSION} already on the board`);
+  chip("fw-chip", ...fwChip());
+  if (b.loader && !S.offline) {
     btn.className = "btn always";
     btn.textContent = "Re-flash turbo firmware";
-  } else {
-    chip("fw-chip", "acc", "needed");
   }
   const row = document.createElement("div");
   row.className = "btn-row";
