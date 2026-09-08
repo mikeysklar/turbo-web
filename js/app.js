@@ -6,7 +6,7 @@ import { analyze, escapeHtml, MEASURED } from "./analyze.js";
 import { split, diffView, mapLine } from "./split.js";
 import { compile, parseStderr, hintFor, COMPILER, STUB_REFUSAL } from "./compile.js";
 import { BOARDS, archForBoard, firmwareFor, installButton, loadInstaller,
-         firmwarePresent, TURBO_VERSION } from "./firmware.js";
+         firmwarePresent, pickerBoards, TURBO_VERSION } from "./firmware.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -191,17 +191,28 @@ async function showFirmware() {
 function fillBoardPicker() {
   const sel = $("board-select");
   sel.innerHTML = '<option value="">Choose a board...</option>';
-  for (const [id, b] of Object.entries(BOARDS)) {
-    const o = document.createElement("option");
-    o.value = id;
-    o.textContent = `${b.name}  (${b.march})`;
-    sel.appendChild(o);
-  }
+  const all = pickerBoards();
+  const withFw = Object.entries(all).filter(([, b]) => b.firmware);
+  const without = Object.entries(all).filter(([, b]) => !b.firmware);
+  const group = (label, rows) => {
+    if (!rows.length) return;
+    const g = document.createElement("optgroup");
+    g.label = label;
+    for (const [id, b] of rows.sort((x, y) => x[1].name.localeCompare(y[1].name))) {
+      const o = document.createElement("option");
+      o.value = id;
+      o.textContent = `${b.name}  (${b.march})`;
+      g.appendChild(o);
+    }
+    sel.appendChild(g);
+  };
+  group("turbo firmware published", withFw);
+  group("arch known, no turbo build yet", without);
 }
 
 function pickBoard(id) {
   if (!id) return;
-  const b = BOARDS[id];
+  const b = pickerBoards()[id];
   S.conn = null;
   S.offline = true;
   S.board = {

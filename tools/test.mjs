@@ -26,6 +26,15 @@ const p = parseProbe(
   "11014|10.3.0 on 2026-08-31|Metro ESP32-S3 with ESP32S3|adafruit_metro_esp32s3");
 ok(p.march === "xtensawin" && p.cpVersion === "10.3.0" &&
    p.boardId === "adafruit_metro_esp32s3", "probe line parses");
+// The real probe line off a Feather RP2040 running stock 10.3.0-alpha.4,
+// captured over the raw REPL on 2026-09-07. arch 0: no native loader.
+const stock = parseProbe(
+  "774|10.3.0-alpha.4 on 2026-07-23|Adafruit Feather RP2040 with rp2040|adafruit_feather_rp2040");
+ok(stock.march === null && stock.loader === false, "a stock board reports no native loader");
+ok(stock.cpVersion === "10.3.0-alpha.4", "a prerelease version string parses");
+ok(stock.boardId === "adafruit_feather_rp2040" &&
+   stock.machine === "Adafruit Feather RP2040 with rp2040", "board id and machine parse");
+
 const bo = parseBootOut(
   "Adafruit CircuitPython 10.3.0 on 2026-08-31; Metro ESP32-S3 with ESP32S3\n" +
   "Board ID:adafruit_metro_esp32s3\n");
@@ -89,6 +98,24 @@ for (const a of ["armv6m", "armv7emsp", "xtensawin", "rv32imc"]) {
 }
 const bad = await compile({ source: "@micropython.viper\ndef g(a: int):\n    return a\n", march: "xtensawin" });
 ok(!bad.ok && bad.message === STUB_REFUSAL, "an unknown source is refused, not guessed at");
+
+// --- board table ------------------------------------------------------
+const { archForBoard, firmwareFor, pickerBoards } = await import("../js/firmware.js");
+ok(archForBoard("adafruit_feather_rp2040") === "armv6m",
+   "a board with no turbo build still resolves an arch");
+ok(firmwareFor("adafruit_feather_rp2040") === null,
+   "and is not offered firmware it does not have");
+ok(archForBoard("nonesuch_board") === null, "an unknown board resolves nothing");
+ok(pickerBoards().adafruit_metro_esp32s3.firmware === true &&
+   pickerBoards().adafruit_feather_rp2040.firmware === false,
+   "the picker separates boards with a build from boards without");
+
+// --- read-only detection ----------------------------------------------
+const { isReadOnly } = await import("../js/serial.js");
+ok(isReadOnly("OSError: [Errno 30] Read-only filesystem"),
+   "the real read-only error off the board is recognised");
+ok(!isReadOnly("OSError: [Errno 2] No such file/directory"),
+   "an unrelated OSError is not mistaken for it");
 
 console.log(fails ? `\n${fails} failed` : "\nall good");
 process.exit(fails ? 1 : 0);
