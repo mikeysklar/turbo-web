@@ -1,0 +1,4 @@
+firmware/*.bin
+firmware/*.uf2
+firmware/*.hex
+.DS_Store
