@@ -79,8 +79,41 @@ assets/turbo.py       the shim, written to /lib on the board when missing
 - Speedups are only ever quoted as "similar loops ran Nx on <board>", from the
   farm's measured table. No number is interpolated for an arch without one.
 
-## Checked on the host
+## Checks
 
-- The example still prints checksum `407644` after the split.
-- The eight `mpy/fast-*.mpy` files come from the native `mpy-cross` at
-  `cp-esp32-native/mpy-cross/build/mpy-cross` (mpy v6.3).
+```sh
+node tools/test.mjs        # verdicts, split, probe decoding, stub compiler
+tools/check-split.sh       # the split does not change what the program does
+tools/build-mpy.sh         # regenerate mpy/ from a native mpy-cross
+```
+
+`tools/check-split.sh` runs the example before and after the split on the host
+and compares the checksum against `407644`, the known-good value from
+`adafruit-turbo/docs/shim-test.md`. Both come out equal.
+
+`node tools/test.mjs` covers the `_mpy` decoding for all five firmware values,
+the five verdict kinds, the split's invariants, the line map, and that the stub
+serves bytes identical to the native compiler with the right arch id in the
+`.mpy` header.
+
+Pre-built module sizes, from the native `mpy-cross` at
+`cp-esp32-native/mpy-cross/build/mpy-cross` (mpy v6.3):
+
+| arch | bytes | `_mpy` |
+|---|---|---|
+| armv6m | 538 | `0x1306` |
+| armv7m / armv7em / armv7emsp / armv7emdp | 486 | `0x1706` … `0x2306` |
+| xtensa | 592 | `0x2706` |
+| xtensawin | 573 | `0x2b06` |
+| rv32imc | 540 | `0x2f06` |
+
+## Not verified yet
+
+Everything that needs a board plugged into the machine running Chrome. The
+farm boards are on `bravo`, and WebSerial can only reach a board on the local
+machine, so these wait for hardware here:
+
+- connect and probe against a loader-firmware board, and against a stock one
+- install over the raw REPL, and the read-only fallback
+- the measured before/after
+- the `cp-install-button` flash, which also needs `tools/fetch-firmware.sh`
