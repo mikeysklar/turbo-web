@@ -9,7 +9,7 @@
 #   tools/build-mpy.sh [path/to/mpy-cross]
 set -e
 cd "$(dirname "$0")/.."
-MC="${1:-../cp-esp32-native/mpy-cross/build/mpy-cross}"
+MC="${1:-tools/mpy-cross-6.3}"
 [ -x "$MC" ] || { echo "no mpy-cross at $MC"; exit 1; }
 MC="$(cd "$(dirname "$MC")" && pwd)/$(basename "$MC")"
 

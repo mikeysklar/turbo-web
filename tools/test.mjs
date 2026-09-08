@@ -91,7 +91,7 @@ globalThis.fetch = async (u) => {
   return { ok: true, status: 200, text: async () => b.toString("utf8"),
            arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) };
 };
-const { compile, STUB_REFUSAL } = await import("../js/compile.js");
+const { compile } = await import("../js/compile.js");
 for (const a of ["armv6m", "armv7emsp", "xtensawin", "rv32imc"]) {
   const r = await compile({ source: s.fastPy, march: a });
   const disk = fs.readFileSync(path.join(ROOT, `mpy/fast-${a}.mpy`));
@@ -100,8 +100,14 @@ for (const a of ["armv6m", "armv7emsp", "xtensawin", "rv32imc"]) {
   ok(disk[0] === 0x43 && (disk[2] >> 2) === { armv6m: 4, armv7emsp: 7, xtensawin: 10, rv32imc: 11 }[a],
      `${a}: the .mpy header carries the right arch id`);
 }
-const bad = await compile({ source: "@micropython.viper\ndef g(a: int):\n    return a\n", march: "xtensawin" });
-ok(!bad.ok && bad.message === STUB_REFUSAL, "an unknown source is refused, not guessed at");
+// The compiler is real now: a function it has never seen compiles too.
+const fresh = await compile({
+  source: "@micropython.viper\ndef g(a: int) -> int:\n    return a + 1\n",
+  march: "xtensawin", name: "fast" });
+ok(fresh.ok && fresh.bytes.length > 0,
+   `arbitrary viper source compiles (${fresh.ok ? fresh.bytes.length : "-"} B)`);
+ok(fresh.ok && fresh.bytes[0] === 0x43 && (fresh.bytes[2] >> 2) === 10,
+   "and carries the xtensawin arch id");
 
 // --- board table ------------------------------------------------------
 const { archForBoard, firmwareFor, pickerBoards } = await import("../js/firmware.js");

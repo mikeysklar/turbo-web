@@ -4,7 +4,7 @@ import { Board, cleanErr, isReadOnly } from "./serial.js";
 import { PROBE_CODE, parseProbe, parseBootOut, mpyLabel } from "./probe.js";
 import { analyze, escapeHtml, MEASURED } from "./analyze.js";
 import { split, diffView, mapLine } from "./split.js";
-import { compile, parseStderr, hintFor, COMPILER, STUB_REFUSAL } from "./compile.js";
+import { compile, parseStderr, hintFor, versionRefusal, preload, COMPILER } from "./compile.js";
 import { BOARDS, archForBoard, firmwareFor, installButton, loadInstaller,
          firmwarePresent, pickerBoards, TURBO_VERSION } from "./firmware.js";
 
@@ -370,6 +370,15 @@ function setBusy(on, label) {
 
 async function doCompile() {
   const march = S.board ? S.board.march : null;
+
+  // A board with a different .mpy format cannot load anything built here.
+  const refusal = versionRefusal(S.board);
+  if (refusal) {
+    status("chg-status", refusal, "bad");
+    S.compiled = null;
+    return false;
+  }
+
   const r = await compile({ source: S.plan.fastPy, march, name: S.plan.moduleName });
   if (r.ok) {
     S.compiled = { bytes: r.bytes, size: r.bytes.length, march };
@@ -379,10 +388,24 @@ async function doCompile() {
   const orig = mapLine(S.plan.lineMap, line);
   const hint = hintFor(message || "");
   const where = orig ? `line ${orig}: ` : "";
-  status("chg-status", `${where}${message}${hint ? " — " + hint : ""}`,
-         message === STUB_REFUSAL ? "" : "bad");
+  status("chg-status", `${where}${message}${hint ? " — " + hint : ""}`, "bad");
+  showCompileError(orig, message, hint);
   S.compiled = null;
   return false;
+}
+
+// Put the compiler's own words on the function that failed, per turbo-web.md
+// section 2: a .v row with chip bad and the compiler's line in .why.
+function showCompileError(line, message, hint) {
+  const row = [...document.querySelectorAll("#verdicts .v")].find((el) => {
+    const n = el.querySelector(".fn");
+    return n && S.functions.some((f) => f.ticked && n.textContent.trim() === f.name);
+  });
+  if (!row) return;
+  const why = row.querySelector(".why");
+  why.innerHTML = `<span class="chip bad" style="margin-right:6px">did not compile</span>` +
+    (line ? `line ${line}, ` : "") + escapeHtml(message) +
+    (hint ? `. ${escapeHtml(hint)}` : "");
 }
 
 async function goPressed() {
@@ -392,7 +415,6 @@ async function goPressed() {
   if (!ok) {
     setBusy(false);
     renderChanges();
-    if (!S.compiled) await downloadFiles(true);
     return;
   }
   renderChanges();
@@ -520,7 +542,7 @@ async function downloadFiles(sourceOnly) {
   const what = S.compiled
     ? `code.py -> /, ${p.moduleName}.py -> /src/, ${p.moduleName}.mpy -> /lib/turbo/${march}/`
     : `code.py -> /, ${p.moduleName}.py -> /src/. Then: turbo build --arch ${march || "<arch>"}`;
-  status("chg-status", (sourceOnly ? STUB_REFUSAL + ". " : "") + "Downloaded. " + what);
+  status("chg-status", "Downloaded. " + what);
 }
 
 function save(name, bytes) {
@@ -610,7 +632,8 @@ $("btn-download").onclick = () => downloadFiles();
 
 fillBoardPicker();
 $("footer-line").textContent =
-  `compiler: ${COMPILER.label} · mpy ${COMPILER.mpy} · turbo firmware ${TURBO_VERSION}`;
+  `compiler: ${COMPILER.label}, mpy ${COMPILER.mpy} · turbo firmware ${TURBO_VERSION}`;
+preload();
 if (!Board.supported()) {
   status("board-status",
     "This browser has no WebSerial. Chrome or Edge on a desktop connects to the board; " +
